@@ -1,0 +1,30 @@
+[
+  {
+    "id": "test-comment-001",
+    "content": "欢迎欢迎！很高兴认识大家！",
+    "postId": "test-post-001",
+    "authorId": "test-user-002",
+    "createdAt": "2024-01-15T02:30:00.000Z"
+  },
+  {
+    "id": "test-comment-002",
+    "content": "这里真的很棒，氛围很好！",
+    "postId": "test-post-001",
+    "authorId": "test-user-003",
+    "createdAt": "2024-01-15T03:00:00.000Z"
+  },
+  {
+    "id": "test-comment-003",
+    "content": "春天确实很美，我也喜欢去公园散步！",
+    "postId": "test-post-002",
+    "authorId": "test-user-001",
+    "createdAt": "2024-01-16T01:00:00.000Z"
+  },
+  {
+    "id": "ca8a3d856ed2bc985f03eb55c316f192",
+    "content": "1",
+    "postId": "fbbd1a481eeb8aa680835c437157296f",
+    "authorId": "test-user-002",
+    "createdAt": "2025-08-15T06:47:57.960Z"
+  }
+]

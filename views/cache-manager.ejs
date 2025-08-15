@@ -1,0 +1,227 @@
+<%- include('components/header', { title: '缓存管理 - Natural Idyllic' }) %>
+<script src="/scripts/local-cache-manager.js"></script>
+
+<div class="min-h-screen bg-base-200">
+  <%- include('components/header/nav-bar') %>
+
+  <main class="max-w-screen-md mx-auto px-4 py-20">
+    <!-- 页面进度条 -->
+    <div x-show="isLoading" class="fixed top-0 left-0 right-0 z-50">
+      <div class="progress progress-primary w-full h-1">
+        <div class="progress-bar" style="width: 100%"></div>
+      </div>
+    </div>
+    
+    <div class="card bg-base-100 shadow-xl">
+      <div class="card-body">
+        <h2 class="card-title text-2xl font-bold mb-6">缓存管理</h2>
+        
+        <div x-data="cacheManager" class="space-y-6">
+          <!-- 缓存统计 -->
+          <div class="stats stats-vertical lg:stats-horizontal shadow">
+            <div class="stat">
+              <div class="stat-title">用户状态</div>
+              <div class="stat-value" x-text="stats.user ? '已缓存' : '未缓存'"></div>
+              <div class="stat-desc" x-text="stats.user ? '用户信息已保存' : '用户信息未保存'"></div>
+            </div>
+            
+            <div class="stat">
+              <div class="stat-title">帖子缓存</div>
+              <div class="stat-value" x-text="stats.postsCount"></div>
+              <div class="stat-desc">条帖子数据</div>
+            </div>
+            
+            <div class="stat">
+              <div class="stat-title">评论缓存</div>
+              <div class="stat-value" x-text="stats.commentsCount"></div>
+              <div class="stat-desc">个帖子的评论</div>
+            </div>
+            
+            <div class="stat">
+              <div class="stat-title">临时数据</div>
+              <div class="stat-value" x-text="stats.tempDataCount"></div>
+              <div class="stat-desc">条临时数据</div>
+            </div>
+          </div>
+
+          <!-- 缓存操作 -->
+          <div class="space-y-4">
+            <h3 class="text-lg font-semibold">缓存操作</h3>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <button @click="clearPosts" class="btn btn-outline btn-warning">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+                清除帖子缓存
+              </button>
+              
+              <button @click="clearComments" class="btn btn-outline btn-warning">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+                清除评论缓存
+              </button>
+              
+              <button @click="clearTempData" class="btn btn-outline btn-warning">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+                清除临时数据
+              </button>
+              
+              <button @click="clearAll" class="btn btn-outline btn-error">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+                清除所有缓存
+              </button>
+            </div>
+          </div>
+
+          <!-- 缓存信息 -->
+          <div class="space-y-4">
+            <h3 class="text-lg font-semibold">缓存信息</h3>
+            
+            <div class="bg-base-200 rounded-lg p-4">
+              <div class="text-sm space-y-2">
+                <div class="flex justify-between">
+                  <span>localStorage 大小:</span>
+                  <span x-text="localStorageSize"></span>
+                </div>
+                <div class="flex justify-between">
+                  <span>最后更新时间:</span>
+                  <span x-text="lastUpdateTime"></span>
+                </div>
+                <div class="flex justify-between">
+                  <span>缓存状态:</span>
+                  <span x-text="cacheStatus" :class="cacheStatus === '正常' ? 'text-success' : 'text-warning'"></span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 说明 -->
+          <div class="alert alert-info">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+            <div>
+              <h3 class="font-bold">缓存说明</h3>
+              <div class="text-xs">
+                <p>• 缓存数据会保存在浏览器本地，提升页面加载速度</p>
+                <p>• 清除缓存后，下次访问需要重新从服务器加载数据</p>
+                <p>• 缓存数据会在24小时后自动过期</p>
+                <p>• 页面刷新或关闭时会自动保存缓存数据</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<%- include('components/footer') %>
+
+<script>
+document.addEventListener('alpine:init', () => {
+  Alpine.data('cacheManager', () => ({
+    stats: {},
+    localStorageSize: '0 KB',
+    lastUpdateTime: '未知',
+    cacheStatus: '正常',
+    isLoading: true,
+
+    async init() {
+      this.isLoading = true
+      try {
+        await this.updateStats()
+        this.updateLocalStorageInfo()
+      } finally {
+        this.isLoading = false
+      }
+      
+      // 定期更新统计信息
+      setInterval(async () => {
+        await this.updateStats()
+        this.updateLocalStorageInfo()
+      }, 5000)
+    },
+
+    async updateStats() {
+      this.stats = await LocalCacheManager.getStats()
+    },
+
+    updateLocalStorageInfo() {
+      try {
+        const info = LocalCacheManager.getLocalStorageInfo()
+        this.localStorageSize = info.size
+        this.lastUpdateTime = info.lastUpdateTime
+        this.cacheStatus = info.status
+      } catch (error) {
+        console.error('获取localStorage信息失败:', error)
+        this.localStorageSize = '获取失败'
+        this.lastUpdateTime = '获取失败'
+        this.cacheStatus = '异常'
+      }
+    },
+
+    async clearPosts() {
+      if (confirm('确定要清除帖子缓存吗？')) {
+        this.isLoading = true
+        try {
+          LocalCacheManager.clearPosts()
+          await this.updateStats()
+          this.updateLocalStorageInfo()
+          window.$toast.success('帖子缓存已清除')
+        } finally {
+          this.isLoading = false
+        }
+      }
+    },
+
+    async clearComments() {
+      if (confirm('确定要清除评论缓存吗？')) {
+        this.isLoading = true
+        try {
+          LocalCacheManager.clearComments()
+          await this.updateStats()
+          this.updateLocalStorageInfo()
+          window.$toast.success('评论缓存已清除')
+        } finally {
+          this.isLoading = false
+        }
+      }
+    },
+
+    async clearTempData() {
+      if (confirm('确定要清除临时数据吗？')) {
+        this.isLoading = true
+        try {
+          LocalCacheManager.clearTempData()
+          await this.updateStats()
+          this.updateLocalStorageInfo()
+          window.$toast.success('临时数据已清除')
+        } finally {
+          this.isLoading = false
+        }
+      }
+    },
+
+    async clearAll() {
+      if (confirm('确定要清除所有缓存吗？这将清除所有本地存储的数据。')) {
+        this.isLoading = true
+        try {
+          LocalCacheManager.clearAll()
+          await this.updateStats()
+          this.updateLocalStorageInfo()
+          window.$toast.success('所有缓存已清除')
+        } finally {
+          this.isLoading = false
+        }
+      }
+    }
+  }))
+})
+</script>
