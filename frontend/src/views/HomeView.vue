@@ -65,16 +65,23 @@
           </div>
         </div>
         
-        <div v-if="postsStore.hasMore" class="text-center py-8">
-          <button 
-            @click="loadMore" 
-            class="btn btn-primary"
-            :disabled="postsStore.isLoadingMore"
-          >
-            <span v-if="postsStore.isLoadingMore" class="loading loading-spinner"></span>
-            加载更多
-          </button>
+        <!-- 无限滚动加载指示器 -->
+        <div v-if="postsStore.isLoadingMore" class="text-center py-8">
+          <div class="loading loading-spinner loading-lg"></div>
+          <p class="mt-4 text-base-content/60">加载更多内容...</p>
         </div>
+        
+        <!-- 没有更多内容的提示 -->
+        <div v-else-if="!postsStore.hasMore && postsStore.posts.length > 0" class="text-center py-8">
+          <p class="text-base-content/60">已经到底啦，没有更多内容了</p>
+        </div>
+        
+        <!-- 无限滚动触发元素 -->
+        <div 
+          v-if="postsStore.hasMore && !postsStore.isLoadingMore" 
+          ref="loadMoreTrigger" 
+          class="h-4"
+        ></div>
       </div>
     </div>
     
@@ -124,10 +131,11 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { onMounted, ref, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { usePostsStore } from '../stores/posts'
 import { useUserStore } from '../stores/user'
+import { websocketService } from '../services/websocket'
 import type { Image, Post } from '../types'
 
 const router = useRouter()
@@ -138,13 +146,50 @@ const selectedPost = ref<Post | null>(null)
 const showCommentModal = ref(false)
 const commentContent = ref('')
 const isSubmittingComment = ref(false)
+const loadMoreTrigger = ref<HTMLElement>()
+let observer: IntersectionObserver | null = null
 
 onMounted(() => {
   postsStore.fetchPosts()
+  setupInfiniteScroll()
+  
+  // 连接WebSocket
+  if (userStore.isLoggedIn) {
+    websocketService.connect()
+  }
 })
 
-const loadMore = () => {
-  postsStore.loadMore()
+onUnmounted(() => {
+  if (observer) {
+    observer.disconnect()
+  }
+  
+  // 断开WebSocket连接
+  websocketService.disconnect()
+})
+
+// 设置无限滚动
+const setupInfiniteScroll = () => {
+  if (!loadMoreTrigger.value) return
+  
+  observer = new IntersectionObserver(
+    (entries) => {
+      const entry = entries[0]
+      if (entry.isIntersecting && postsStore.hasMore && !postsStore.isLoadingMore) {
+        postsStore.loadMore()
+      }
+    },
+    {
+      rootMargin: '100px', // 提前100px触发加载
+      threshold: 0.1
+    }
+  )
+  
+  observer.observe(loadMoreTrigger.value)
+}
+
+const goToPostDetail = (postId: string) => {
+  router.push(`/post/${postId}`)
 }
 
 const onPreviewImage = (images: Image[], index: number) => {
@@ -156,40 +201,48 @@ const formatDate = (dateString: string) => {
   return new Date(dateString).toLocaleDateString()
 }
 
-const toggleLike = async (post: any) => {
+const toggleLike = async (post: Post) => {
   if (!userStore.isLoggedIn) {
     alert('请先登录')
     return
   }
   
   try {
-    // 调用API进行点赞/取消点赞
+    // 先更新本地状态，提供即时反馈
+    const newIsLiked = !post.isLiked
+    post.isLiked = newIsLiked
+    post.likeCount = newIsLiked ? (post.likeCount || 0) + 1 : (post.likeCount || 1) - 1
+    
+    // 发送WebSocket消息
+    websocketService.sendLike(post.id, newIsLiked)
+    
+    // 同时调用API确保数据一致性
     const response = await fetch(`/api/local/posts/${post.id}/like`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      }
+      headers: { 'Content-Type': 'application/json' }
     })
-    
     const data = await response.json()
     
     if (data.success) {
-      // 更新本地状态
-      post.isLiked = !post.isLiked
+      // 使用服务器返回的数据更新状态
+      post.isLiked = data.isLiked
       post.likeCount = data.likeCount
+    } else {
+      // 如果API调用失败，回滚本地状态
+      post.isLiked = !newIsLiked
+      post.likeCount = newIsLiked ? (post.likeCount || 1) - 1 : (post.likeCount || 0) + 1
+      alert('点赞失败，请重试')
     }
   } catch (error) {
     console.error('点赞失败:', error)
+    // 回滚本地状态
+    post.isLiked = !post.isLiked
+    post.likeCount = post.isLiked ? (post.likeCount || 0) + 1 : (post.likeCount || 1) - 1
+    alert('点赞失败，请重试')
   }
 }
 
-const showComments = (post: any) => {
-  if (!userStore.isLoggedIn) {
-    alert('请先登录')
-    return
-  }
-  
-  // 显示评论模态框
+const showComments = (post: Post) => {
   selectedPost.value = post
   showCommentModal.value = true
 }
@@ -200,11 +253,19 @@ const submitComment = async () => {
   isSubmittingComment.value = true
   
   try {
+    // 先更新本地状态
+    const post = postsStore.posts.find(p => p.id === selectedPost.value?.id)
+    if (post) {
+      post.commentCount = (post.commentCount || 0) + 1
+    }
+    
+    // 发送WebSocket消息
+    websocketService.sendComment(selectedPost.value.id, commentContent.value.trim())
+    
+    // 调用API
     const response = await fetch('/api/local/comments', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         content: commentContent.value.trim(),
         postId: selectedPost.value.id
@@ -214,30 +275,28 @@ const submitComment = async () => {
     const data = await response.json()
     
     if (data.success) {
-      // 更新帖子的评论数
-      const post = postsStore.posts.find(p => p.id === selectedPost.value?.id)
-      if (post) {
-        post.commentCount = (post.commentCount || 0) + 1
-      }
-      
-      // 关闭模态框并清空内容
       showCommentModal.value = false
       commentContent.value = ''
       selectedPost.value = null
-      
       alert('评论发表成功')
     } else {
+      // 如果API调用失败，回滚本地状态
+      if (post) {
+        post.commentCount = (post.commentCount || 1) - 1
+      }
       alert(data.error || '评论发表失败')
     }
   } catch (error) {
     console.error('评论发表失败:', error)
+    // 回滚本地状态
+    const post = postsStore.posts.find(p => p.id === selectedPost.value?.id)
+    if (post) {
+      post.commentCount = (post.commentCount || 1) - 1
+    }
     alert('评论发表失败，请重试')
   } finally {
     isSubmittingComment.value = false
   }
 }
-
-const goToPostDetail = (postId: string) => {
-  router.push(`/post/${postId}`)
-}
 </script>
+

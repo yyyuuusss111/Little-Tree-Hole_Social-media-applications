@@ -1,33 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-
-interface User {
-  id: string
-  username: string
-  avatar?: string
-}
-
-interface Image {
-  id: string
-  url: string
-  alt?: string
-}
-
-interface Post {
-  id: string
-  content: string
-  author: User
-  images: Image[]
-  createdAt: string
-  updatedAt: string
-  likeCount: number
-  commentCount: number
-}
-
-interface CreatePostForm {
-  content: string
-  images: File[]
-}
+import type { User, Post, Image, CreatePostForm } from '../types'
 
 export const usePostsStore = defineStore('posts', () => {
   const posts = ref<Post[]>([])
@@ -78,13 +51,16 @@ export const usePostsStore = defineStore('posts', () => {
           author: {
             id: '1',
             username: 'testuser',
-            avatar: '/images/avatar.png'
+            email: 'test@example.com',
+            avatar: '/images/avatar.png',
+            createdAt: new Date().toISOString()
           },
           images: [],
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
           likeCount: 5,
-          commentCount: 2
+          commentCount: 2,
+          isLiked: false
         },
         {
           id: '2',
@@ -92,7 +68,9 @@ export const usePostsStore = defineStore('posts', () => {
           author: {
             id: '2',
             username: 'anotheruser',
-            avatar: '/images/avatar.png'
+            email: 'another@example.com',
+            avatar: '/images/avatar.png',
+            createdAt: new Date().toISOString()
           },
           images: [
             {
@@ -104,7 +82,8 @@ export const usePostsStore = defineStore('posts', () => {
           createdAt: new Date(Date.now() - 86400000).toISOString(),
           updatedAt: new Date(Date.now() - 86400000).toISOString(),
           likeCount: 12,
-          commentCount: 5
+          commentCount: 5,
+          isLiked: false
         }
       ]
 
@@ -195,7 +174,9 @@ export const usePostsStore = defineStore('posts', () => {
         author: {
           id: '1',
           username: 'testuser',
-          avatar: '/images/avatar.png'
+          email: 'test@example.com',
+          avatar: '/images/avatar.png',
+          createdAt: new Date().toISOString()
         },
         images: postData.images.map((file, index) => ({
           id: index.toString(),
@@ -205,7 +186,8 @@ export const usePostsStore = defineStore('posts', () => {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         likeCount: 0,
-        commentCount: 0
+        commentCount: 0,
+        isLiked: false
       }
       
       posts.value.unshift(newPost)
@@ -230,25 +212,18 @@ export const usePostsStore = defineStore('posts', () => {
       const data = await response.json()
       
       if (data.success) {
-        // 更新本地数据
-        const index = posts.value.findIndex(post => post.id === id)
-        if (index > -1) {
-          posts.value[index] = data.post
+        // 更新本地帖子数据
+        const index = posts.value.findIndex(p => p.id === id)
+        if (index !== -1) {
+          posts.value[index] = { ...posts.value[index], ...data.post }
         }
         return { success: true }
       } else {
         throw new Error(data.error || '更新失败')
       }
     } catch (error) {
-      console.error('API调用失败，使用模拟数据:', error)
-      
-      // 降级到模拟更新
-      const index = posts.value.findIndex(post => post.id === id)
-      if (index > -1) {
-        posts.value[index].content = postData.content
-        posts.value[index].updatedAt = new Date().toISOString()
-      }
-      return { success: true }
+      console.error('更新帖子失败:', error)
+      return { success: false, error: '更新失败' }
     }
   }
 
@@ -262,28 +237,16 @@ export const usePostsStore = defineStore('posts', () => {
       const data = await response.json()
       
       if (data.success) {
-        const index = posts.value.findIndex(post => post.id === id)
-        if (index > -1) {
-          posts.value.splice(index, 1)
-        }
+        // 从本地列表中移除帖子
+        posts.value = posts.value.filter(p => p.id !== id)
         return { success: true }
       } else {
         throw new Error(data.error || '删除失败')
       }
     } catch (error) {
-      console.error('API调用失败，使用模拟数据:', error)
-      
-      // 降级到模拟删除
-      const index = posts.value.findIndex(post => post.id === id)
-      if (index > -1) {
-        posts.value.splice(index, 1)
-      }
-      return { success: true }
+      console.error('删除帖子失败:', error)
+      return { success: false, error: '删除失败' }
     }
-  }
-
-  const clearCurrentPost = () => {
-    currentPost.value = null
   }
 
   return {
@@ -292,14 +255,15 @@ export const usePostsStore = defineStore('posts', () => {
     isLoading,
     isLoadingMore,
     isRefreshing,
-    hasMore: hasMorePosts,
+    page,
+    hasMore,
+    hasMorePosts,
     fetchPosts,
     loadMore,
     refreshPosts,
     fetchPost,
     createPost,
     updatePost,
-    deletePost,
-    clearCurrentPost
+    deletePost
   }
 })

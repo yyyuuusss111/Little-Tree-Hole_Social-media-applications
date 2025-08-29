@@ -2,6 +2,7 @@
 import { onMounted } from 'vue'
 import Header from './components/Header.vue'
 import Toast from './components/Toast.vue'
+import WebSocketStatus from './components/WebSocketStatus.vue'
 import { useUserStore } from './stores/user'
 
 const userStore = useUserStore()
@@ -18,7 +19,8 @@ onMounted(() => {
     <main>
       <router-view />
     </main>
-    <Toast />
+    <Toast message="默认消息" />
+    <WebSocketStatus />
   </div>
 </template>
 

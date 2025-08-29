@@ -16,6 +16,7 @@ export interface Post {
   updatedAt: string
   likeCount: number
   commentCount: number
+  isLiked?: boolean // 添加点赞状态
 }
 
 export interface Comment {

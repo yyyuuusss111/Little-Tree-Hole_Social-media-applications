@@ -1,14 +1,17 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import { defineAsyncComponent } from 'vue'
 import { useUserStore } from '../stores/user'
-import HomeView from '../views/HomeView.vue'
-import LoginView from '../views/LoginView.vue'
-import RegisterView from '../views/RegisterView.vue'
-import ForgotPasswordView from '../views/ForgotPasswordView.vue'
-import ProfileView from '../views/ProfileView.vue'
-import CreatePostView from '../views/CreatePostView.vue'
-import PostDetailView from '../views/PostDetailView.vue'
-import CacheManagerView from '../views/CacheManagerView.vue'
-import SettingsView from '../views/SettingsView.vue'
+
+// 使用defineAsyncComponent实现路由懒加载
+const HomeView = defineAsyncComponent(() => import('../views/HomeView.vue'))
+const LoginView = defineAsyncComponent(() => import('../views/LoginView.vue'))
+const RegisterView = defineAsyncComponent(() => import('../views/RegisterView.vue'))
+const ForgotPasswordView = defineAsyncComponent(() => import('../views/ForgotPasswordView.vue'))
+const ProfileView = defineAsyncComponent(() => import('../views/ProfileView.vue'))
+const CreatePostView = defineAsyncComponent(() => import('../views/CreatePostView.vue'))
+const PostDetailView = defineAsyncComponent(() => import('../views/PostDetailView.vue'))
+const CacheManagerView = defineAsyncComponent(() => import('../views/CacheManagerView.vue'))
+const SettingsView = defineAsyncComponent(() => import('../views/SettingsView.vue'))
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
